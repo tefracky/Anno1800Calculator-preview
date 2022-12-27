@@ -1,7 +1,20 @@
 ﻿// @ts-check
-import { NumberInputHandler } from './util.js'
+import { PopulationNeed } from './consumption.js';
+import { Consumer } from './factories.js';
+import { NumberInputHandler, EPSILON } from './util.js'
 
-var ko = require( "knockout" );
+var ko = require("knockout");
+
+ko.bindingHandlers.withProperties = {
+    init: function (element, valueAccessor, allBindings, viewModel, bindingContext) {
+        // Make a modified binding context, with a extra properties, and apply it to descendant elements
+        var innerBindingContext = bindingContext.extend(valueAccessor);
+        ko.applyBindingsToDescendants(innerBindingContext, element);
+
+        // Also tell KO *not* to bind the descendants itself, otherwise they will be bound twice
+        return { controlsDescendantBindings: true };
+    }
+};
 
 ko.components.register('number-input-increment', {
     viewModel: {
@@ -62,7 +75,7 @@ ko.components.register('factory-header', {
 
         <div class="ui-fchain-item-icon mb-2">
             <img class="icon-tile" data-bind="attr: { src: $data.icon ? $data.icon : null, alt: $data.name }">
-            <img class="subscript-icon icon-light" data-bind="visible: $root.island().isAllIslands() && $data.region, attr: {src: $data.region ? $data.region.icon : null, title: $data.region ? $data.region.name : null}">
+            <img class="superscript-icon icon-light" data-bind="visible: $data.region, attr: {src: $data.region ? $data.region.icon : null, title: $data.region ? $data.region.name : null}">
         </div>`
 })
 
@@ -179,7 +192,7 @@ ko.components.register('collapsible', {
         this.heading = params.heading;
         this.collapser = window.view.collapsibleStates.get(params.id, params.collapsed);
         this.cssClass = ko.pureComputed(() => this.collapser.collapsed() ? "hide" : "show");
-        this.fieldsetClass = params.fieldsetClass ? params.fieldsetClass : "collapsable-section";
+        this.fieldsetClass = params.fieldsetClass ? params.fieldsetClass : "collapsible-section";
         this.data = params.data;
         this.hasCheckbox = false;
 
@@ -205,6 +218,24 @@ ko.components.register('collapsible', {
             }
         }
 
+        this.hasSummary = false;
+        if (params.summary) {
+            this.hasSummary = true;
+            this.summary = params.summary;
+            if (params.colorSummary) {
+                this.summaryWithSign = true;
+                this.summaryClass = ko.pureComputed(() => {
+                    if (Math.abs(this.summary()) < EPSILON)
+                        return "";
+
+                    return this.summary() < 0 ? "amount-negative" : "amount-positive"
+                })
+            } else {
+                this.summaryWithSign = false;
+                this.summaryClass = ko.observable("");
+            }
+        }
+
         setTimeout(() => {
             $(this.target).on("hidden.bs.collapse shown.bs.collapse", (event) => {
                 this.collapser.collapsed(!$(this.target).hasClass("show"));
@@ -212,26 +243,130 @@ ko.components.register('collapsible', {
         });
 
     }, template:
-        `<fieldset data-bind="class: fieldsetClass">
+        `<fieldset class="mt-4" data-bind="class: fieldsetClass">
             <legend class="collapser collapsed" data-toggle="collapse" data-bind="attr: {'data-target' : target}, css: {'collapsed' : collapser.collapsed()}">
-                        <span class="fa fa-chevron-right"></span>
-                        <span class="fa fa-chevron-down"></span>
-                        <!-- ko if: !hasCheckbox -->
+                <div class="summary" data-bind="if: hasSummary">
+                    <span class="float-right" data-bind="class: summaryClass">
+                        <span data-bind="text: formatNumber(summary(), summaryWithSign)"></span>
+                        <span> t/min</span>
+                    </span>
+                </div>
+                <span class="fa fa-chevron-right"></span>
+                <span class="fa fa-chevron-down"></span>
+                <!-- ko if: !hasCheckbox -->
+                <span data-bind="text:heading"></span>
+                <!-- /ko -->
+                <!-- ko if: hasCheckbox -->
+                <span class="custom-control custom-checkbox ml-1" style="display: initial">
+                    <input type="checkbox" class="custom-control-input" data-bind="checked: checked, attr: { id: target + '-check-all' }">
+                    <label class="custom-control-label" data-bind="attr: {for: target + '-check-all'}">
                         <span data-bind="text:heading"></span>
-                        <!-- /ko -->
-                        <!-- ko if: hasCheckbox -->
-                        <span class="custom-control custom-checkbox ml-1" style="display: initial">
-                            <input type="checkbox" class="custom-control-input" data-bind="checked: checked, attr: { id: target + '-check-all' }">
-                            <label class="custom-control-label" data-bind="attr: {for: target + '-check-all'}">
-                                <span data-bind="text:heading"></span>
-                            </label>
-                        </span>
-                        <!-- /ko -->
-                    </legend>
+                    </label>
+                </span>
+                <!-- /ko -->   
+            </legend>
             <div class="collapse" data-bind="attr: {'id' : collapser.id}, class: cssClass">
                 <!-- ko template: { nodes: $componentTemplateNodes, data: data } --><!-- /ko -->
                 <div class="clear"></div>
             </div>
           </fieldset>
             `
+});
+
+ko.components.register('consumer-unknown', {
+    template: `<span>?</span>`
+});
+
+ko.components.register('consumer-population', {
+    template:
+        `<div class="inline-list" style="cursor: pointer" data-dismiss="modal" data-bind="click: () => {setTimeout(() => { $root.selectedPopulationLevel($data.level); $('#population-level-config-dialog').modal('show')}, 500);}" >
+            <div data-bind="component: {name: 'asset-icon', params: $data.level}"></div>
+            <span class="ml-2" data-bind="text: $data.level.name"></span>
+        </div>`
+});
+
+ko.components.register('consumer-factory', {
+    template:
+        `<div class="inline-list" style="cursor: pointer" data-bind="click: () => {$root.selectedFactory($data.consumer);}" >
+            <div data-bind="component: {name: 'asset-icon', params: $data.consumer}"></div>
+            <span class="ml-2" data-bind="text: $data.consumer.getRegionExtendedName()"></span>
+        </div>`
+});
+
+ko.components.register('consumer-module', {
+    template:
+        `<div class="inline-list" style="cursor: pointer" data-bind="click: () => {$root.selectedFactory($data.consumer);}" >
+            <div data-bind="component: {name: 'asset-icon', params: $data.consumer}"></div>
+            <div class="ml-2" data-bind="component: {name: 'asset-icon', params: $data.module}"></div>
+            <span class="ml-2" data-bind="text: $data.module.name() + ': ' + $data.consumer.getRegionExtendedName()"></span>
+        </div>`
+});
+
+ko.components.register('consumer-entry', {
+    viewModel: function (demand) {
+        this.demand = demand;
+
+
+        this.component = "consumer-unknown";
+
+        if (this.demand instanceof PopulationNeed)
+            this.component = "consumer-population";
+        else if (this.demand.module)
+            this.component = "consumer-module";
+        else if (this.demand.consumer instanceof Consumer)
+            this.component = "consumer-factory";
+
+    }, template:
+        `<div data-bind="component: { name: component, params: demand}"></div>`
+});
+
+ko.components.register('consumer-view', {
+    viewModel: function (params) {
+        this.factory = params.factory;
+        this.populationLevelIndices = new Map();
+        this.factory.island.populationLevels.forEach((l, i) => this.populationLevelIndices.set(l.guid, i));
+
+        this.demands = ko.pureComputed(() => {
+            var demands = this.factory.demands().filter(d => d.amount() > ACCURACY);
+            return demands.sort((a, b) => {
+                if (a instanceof PopulationNeed && b instanceof PopulationNeed)
+                    return this.populationLevelIndices.get(a.level.guid) - this.populationLevelIndices.get(b.level.guid);
+
+                if (a instanceof PopulationNeed)
+                    return -1000;
+
+                if (b instanceof PopulationNeed)
+                    return 1000;
+
+                if (a.consumer && b.consumer)
+                    return a.consumer.name().localeCompare(b.consumer.name());
+
+                if (a.consumer)
+                    return -1000;
+
+                if (b.consumer)
+                    return 1000;
+
+                return b.amount() - a.amount();
+            });
+        });
+
+    }, template:
+        //        `<div data-bind="component: { name: component, params: demand}"></div>`
+        `<table class="table table-striped">
+            <tbody data-bind="foreach: demands">
+                <tr>
+                    <td>
+                        <div data-bind="component: { name: 'consumer-entry', params: $data}"></div>
+                    </td>
+                    <td>
+                        <div class="float-right">
+                            <span data-bind="text: formatNumber($data.amount())"></span>
+                            <span> t/min</span>
+                        </div>
+                    </td>
+
+                </tr>
+            </tbody>
+         </table>`
 });

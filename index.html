@@ -72,13 +72,13 @@
     <div id="content" data-bind="visible: true" style="display:none">
         <nav class="navbar navbar-expand-sm bg-dark inline-list-stretched">
             <div class="btn-group">
-                <button type="button" class="btn" data-bind="enable: $root.settings.consumptionModifier.checked()">
+                <button type="button" class="btn">
                     <img data-toggle="modal" data-target="#residence-effect-dialog" class="icon-navbar" src="icons/icon_marketplace_2d_light.png" data-bind="click: () => $root.island().prepareResidenceEffectView()" />
                 </button>
                 <button data-toggle="modal" data-target="#factory-choose-dialog" class="btn text-light">
                     <span class="fa fa-cogs"> </span>
                 </button>
-                <button type="button" class="btn" data-bind="visible: !$root.settings.simpleView.checked(), enable: $root.settings.additionalProduction.checked()">
+                <button type="button" class="btn">
                     <img data-toggle="modal" data-target="#item-equipment-dialog" class="icon-navbar" src="icons/icon_add_goods_socket_white.png" />
                 </button>
                 <button type="button" class="btn" data-bind="enable: $root.dlcsMap.get('dlc7').checked(), visible: $root.island().contractManager">
@@ -93,7 +93,7 @@
                     <button type="button" class="btn">
                         <img data-toggle="modal" data-target="#island-management-dialog" class="icon-navbar" src="icons/icon_map.png" />
                     </button>
-                    <button type="button" class="btn" data-bind="enable: $root.settings.tradeRoutes.checked()">
+                    <button type="button" class="btn">
                         <img data-toggle="modal" data-target="#trade-routes-management-dialog" class="icon-navbar" src="icons/icon_shiptrade.png" />
                     </button>
                 </div>
@@ -169,7 +169,7 @@
                     <div data-bind="foreach: $root.template.powerPlants.concat($root.template.publicServices)">
 
                         <!-- power plants and public services -->
-                        <div class="ui-service-building-item" data-bind="visible: $data.instance().visible()">
+                        <div class="ui-service-building-item" data-bind="visible: $data.instance().visible(), css: {'no-name': $root.settings.hideNames.checked()}">
                             <factory-header params="data: $data, button: true"></factory-header>
 
 
@@ -198,7 +198,7 @@
                     <!-- /power plants -->
                     <!-- products without factories: mail and research papers -->
                     <div data-bind="foreach: $root.island().noFactoryProducts">
-                        <div class="ui-service-building-item" data-bind="visible: $data.visible">
+                        <div class="ui-service-building-item" data-bind="visible: $data.visible, css: {'no-name': $root.settings.hideNames.checked()}">
                             <factory-header params="data: $data, button: false"></factory-header>
 
                             <div style="margin-top: 1rem; display: flex; flex-flow: column; height: calc(100% - 3rem  - 55px); justify-content: space-between;">
@@ -224,17 +224,15 @@
                     <!-- public recipe buildings -->
                     <div data-bind="foreach: $root.island().recipeLists">
 
-                        <div class="ui-service-building-item" data-bind="visible: $data.visible()">
+                        <div class="ui-service-building-item" data-bind="visible: $data.visible(), css: {'no-name': $root.settings.hideNames.checked()}">
                             <factory-header params="data: $data, button: false"></factory-header>
 
 
                             <div class="form-group">
-                                <select class="custom-select form-control" data-bind="value: $data.selectedRecipe, options: $data.unusedRecipes, optionsText: r => r.recipeName()"></select>
+                                <select class="custom-select-sm form-control" data-bind="value: $data.selectedRecipe, options: $data.unusedRecipes, optionsText: r => r.recipeName()"></select>
                             </div>
 
-                            <div style="margin: -10px;">
-
-
+                            <div class="bottom-button">
                                 <button data-bind="click: () => $data.create(), enable: $data.canCreate" class="btn btn-secondary btn-sm btn-light" style="width: 100%;">
                                     <span class="fa fa-plus"></span>
                                 </button>
@@ -246,7 +244,7 @@
                     <!-- recipes -->
                     <div data-bind="foreach: $root.template.publicRecipeBuildings">
 
-                        <div class="ui-fchain-item" data-bind="visible: $data.instance().visible() && $data.instance().existingBuildings() > 0">
+                        <div class="ui-service-building-item" data-bind="visible: $data.instance().visible() && $data.instance().existingBuildings() > 0, css: {'no-name': $root.settings.hideNames.checked()}">
                             <div class="ui-fchain-item-tr-button">
                                 <div>
                                     <button class="btn btn-light btn-sm" data-bind="click: () => {$root.selectedFactory($data.instance())}" data-toggle="modal" data-target="#factory-config-dialog">
